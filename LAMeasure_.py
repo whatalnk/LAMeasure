@@ -13,6 +13,19 @@ from ij.plugin.filter import ThresholdToSelection
 from ij.plugin.filter import ParticleAnalyzer as PA
 from ij.measure import ResultsTable, Calibration
 
+class PAResult():
+    def __init__(self, filename, area, perim, circ, ar, round, solidity):
+        self.filename = filename
+        self.area = area
+        self.perim = perim
+        self.circ = circ
+        self.ar = ar
+        self.round = round
+        self.solidity = solidity
+
+    def asRow(self):
+        return "%s, %f, %f, %f, %f, %f, %f\n" % (self.filename, self.area, self.perim, self.circ, self.ar, self.round, self.solidity)
+
 # PA args and options
 MINSIZE = 1000
 MAXSIZE = JFloat.POSITIVE_INFINITY
@@ -29,7 +42,6 @@ ImagePlus().setGlobalCalibration(cal)
 dir = IJ.getDirectory("Path to directory")
 
 filenames = [os.path.join(dir, file) for file in os.listdir(dir) if fnmatch.fnmatch(file, '*.jpg')]
-filecounter = 0
 
 maskdir = os.path.join(dir, "mask")
 resdir = os.path.join(dir, "res")
@@ -57,12 +69,23 @@ for filename in filenames:
 
     filebasename = os.path.basename(filename)
 
+    paResults = [] 
     nrow = rt.size()
     for i in range(nrow):
-        rt.setValue("Filename", i, filebasename)
+        area = rt.getValue("Area", i)
+        perim = rt.getValue("Perim.", i)
+        circ = rt.getValue("Circ.", i)
+        ar = rt.getValue("AR", i)
+        round = rt.getValue("Round", i)
+        solidity = rt.getValue("Solidity", i)
+        paResults.append(PAResult(filebasename, area, perim, circ, ar, round, solidity))
 
     outfilename = os.path.join(resdir, "res_%s.csv" % os.path.splitext(filebasename)[0])
-    rt.save(outfilename)
+    with codecs.open(outfilename, "w", "utf-8") as f:
+        header = ["Filename", "Area", "Perim.", "Circ", "AR", "Round", "Solidity"]
+        table = [",".join(header) + "\n"]
+        table += [row.asRow() for row in paResults]
+        f.writelines(table)
     IJ.log("Result: %s" % outfilename)
 
     maskfilename = os.path.join(maskdir, "mask_%s" % filebasename)
