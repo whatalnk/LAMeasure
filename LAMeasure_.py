@@ -21,11 +21,43 @@ class PAResult():
     def asRow(self):
         return "%s, %f, %f, %f, %f, %f, %f\n" % (self.filename, self.area, self.perim, self.circ, self.ar, self.round, self.solidity)
 
+def analyze(filename):
+    ip = IJ.openImage(filename).getProcessor().convertToByteProcessor()
+    IJ.log("Input file: %s" % filename)
+
+    ip.setAutoThreshold("Minimum")
+
+    roi = ThresholdToSelection().convert(ip)
+    ip.setRoi(roi)
+    mask = ip.getMask()
+
+    rt = ResultsTable()
+    rt.showRowNumbers(False)
+    pa = PA(options, PA.AREA + PA.PERIMETER + PA.CIRCULARITY, rt, MINSIZE, MAXSIZE) 
+    pa.analyze(ImagePlus(), mask)
+
+    filebasename = os.path.basename(filename)
+
+    paResults = [] 
+    nrow = rt.size()
+    for i in range(nrow):
+        area = rt.getValue("Area", i)
+        perim = rt.getValue("Perim.", i)
+        circ = rt.getValue("Circ.", i)
+        ar = rt.getValue("AR", i)
+        round = rt.getValue("Round", i)
+        solidity = rt.getValue("Solidity", i)
+        paResults.append(PAResult(filebasename, [area, perim, circ, ar, round, solidity]))
+    return (filebasename, mask, paResults)
+
+
 if __name__ == '__main__':
     # PA args and options
     MINSIZE = 1000
     MAXSIZE = JFloat.POSITIVE_INFINITY
     options = PA.SHOW_NONE
+
+    header = ["Filename", "Area", "Perim.", "Circ", "AR", "Round", "Solidity"]
 
     DistPixel = IJ.getNumber("Distance in pixel", 600)
     DistCm = IJ.getNumber("Distance in cm", 2.54)
@@ -49,36 +81,9 @@ if __name__ == '__main__':
     leafnumbers = []
 
     for filename in filenames:
-        ip = IJ.openImage(filename).getProcessor().convertToByteProcessor()
-        IJ.log("Input file: %s" % filename)
-
-        ip.setAutoThreshold("Minimum")
-
-        roi = ThresholdToSelection().convert(ip)
-        ip.setRoi(roi)
-        mask = ip.getMask()
-
-        rt = ResultsTable()
-        rt.showRowNumbers(False)
-        pa = PA(options, PA.AREA + PA.PERIMETER + PA.CIRCULARITY, rt, MINSIZE, MAXSIZE) 
-        pa.analyze(ImagePlus(), mask)
-
-        filebasename = os.path.basename(filename)
-
-        paResults = [] 
-        nrow = rt.size()
-        for i in range(nrow):
-            area = rt.getValue("Area", i)
-            perim = rt.getValue("Perim.", i)
-            circ = rt.getValue("Circ.", i)
-            ar = rt.getValue("AR", i)
-            round = rt.getValue("Round", i)
-            solidity = rt.getValue("Solidity", i)
-            paResults.append(PAResult(filebasename, [area, perim, circ, ar, round, solidity]))
-
+        filebasename, mask, paResults = analyze(filename)
         outfilename = os.path.join(resdir, "res_%s.csv" % os.path.splitext(filebasename)[0])
         with codecs.open(outfilename, "w", "utf-8") as f:
-            header = ["Filename", "Area", "Perim.", "Circ", "AR", "Round", "Solidity"]
             table = [",".join(header) + "\n"]
             table += [row.asRow() for row in paResults]
             f.writelines(table)
@@ -88,7 +93,7 @@ if __name__ == '__main__':
         IJ.save(ImagePlus(filebasename, mask), maskfilename)
         IJ.log("Mask image: %s" % maskfilename)
         
-        leafnumbers.append((filebasename, nrow))
+        leafnumbers.append((filebasename, len(paResults)))
 
     with codecs.open(os.path.join(dir, "leafnumbers.csv"), "w", "utf-8") as f:
         f.writelines(["%s, %d\n" % fn for fn in leafnumbers])
