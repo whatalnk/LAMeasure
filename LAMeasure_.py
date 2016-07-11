@@ -14,14 +14,9 @@ from ij.plugin.filter import ParticleAnalyzer as PA
 from ij.measure import ResultsTable, Calibration
 
 class PAResult():
-    def __init__(self, filename, area, perim, circ, ar, round, solidity):
-        self.filename = filename
-        self.area = area
-        self.perim = perim
-        self.circ = circ
-        self.ar = ar
-        self.round = round
-        self.solidity = solidity
+    def __init__(self, filename, paResult):
+        self.filename = filename 
+        self.area, self.perim, self.circ, self.ar, self.round, self.solidity = paResult
 
     def asRow(self):
         return "%s, %f, %f, %f, %f, %f, %f\n" % (self.filename, self.area, self.perim, self.circ, self.ar, self.round, self.solidity)
@@ -79,7 +74,7 @@ if __name__ == '__main__':
             ar = rt.getValue("AR", i)
             round = rt.getValue("Round", i)
             solidity = rt.getValue("Solidity", i)
-            paResults.append(PAResult(filebasename, area, perim, circ, ar, round, solidity))
+            paResults.append(PAResult(filebasename, [area, perim, circ, ar, round, solidity]))
 
         outfilename = os.path.join(resdir, "res_%s.csv" % os.path.splitext(filebasename)[0])
         with codecs.open(outfilename, "w", "utf-8") as f:
