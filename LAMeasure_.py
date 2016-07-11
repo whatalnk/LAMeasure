@@ -6,6 +6,7 @@ import datetime
 import codecs
 
 import java.lang.Float as JFloat
+from org.apache.commons.math3.ml.clustering import KMeansPlusPlusClusterer, Clusterable
 
 from ij import IJ, ImagePlus
 from ij.process import ImageProcessor, AutoThresholder
@@ -13,13 +14,16 @@ from ij.plugin.filter import ThresholdToSelection
 from ij.plugin.filter import ParticleAnalyzer as PA
 from ij.measure import ResultsTable, Calibration
 
-class PAResult():
+class PAResult(Clusterable):
     def __init__(self, filename, paResult):
         self.filename = filename 
         self.area, self.perim, self.circ, self.ar, self.round, self.solidity = paResult
 
     def asRow(self):
         return "%s, %f, %f, %f, %f, %f, %f\n" % (self.filename, self.area, self.perim, self.circ, self.ar, self.round, self.solidity)
+
+    def getPoint(self):
+        return [self.area]
 
 def analyze(filename):
     ip = IJ.openImage(filename).getProcessor().convertToByteProcessor()
@@ -53,9 +57,10 @@ def analyze(filename):
 
 if __name__ == '__main__':
     # PA args and options
-    MINSIZE = 1000
+    MINSIZE = 0
     MAXSIZE = JFloat.POSITIVE_INFINITY
     options = PA.SHOW_NONE
+    CLUSTERSIZE = 2
 
     header = ["Filename", "Area", "Perim.", "Circ", "AR", "Round", "Solidity"]
 
@@ -82,6 +87,16 @@ if __name__ == '__main__':
 
     for filename in filenames:
         filebasename, mask, paResults = analyze(filename)
+        clusterer = KMeansPlusPlusClusterer(CLUSTERSIZE)
+        clusterResults = clusterer.cluster(paResults)
+        cl1, cl2 = [clusterResults.get(i).getPoints() for i in range(CLUSTERSIZE)]
+        sum1, sum2 = [sum([point.area for point in cl]) for cl in [cl1, cl2]]
+ 
+        if sum1 > sum2:
+            paResults = cl1
+        else:
+            paResults = cl2
+
         outfilename = os.path.join(resdir, "res_%s.csv" % os.path.splitext(filebasename)[0])
         with codecs.open(outfilename, "w", "utf-8") as f:
             table = [",".join(header) + "\n"]
