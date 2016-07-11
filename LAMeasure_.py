@@ -22,6 +22,13 @@ dir = IJ.getDirectory("Path to directory")
 filenames = [os.path.join(dir, file) for file in os.listdir(dir) if fnmatch.fnmatch(file, '*.jpg')]
 filecounter = 0
 
+maskdir = os.path.join(dir, "mask")
+resdir = os.path.join(dir, "res")
+
+for p in [maskdir, resdir]:
+    if not os.path.exists(p):
+        os.makedirs(p)
+
 for filename in filenames:
     ip = IJ.openImage(filename).getProcessor().convertToByteProcessor()
     IJ.log("Input file: %s" % filename)
@@ -43,11 +50,11 @@ for filename in filenames:
     for i in range(nrow):
         rt.setValue("Filename", i, filebasename)
 
-    outfilename = os.path.join(dir, "res_%s.csv" % os.path.splitext(filebasename)[0])
+    outfilename = os.path.join(resdir, "res_%s.csv" % os.path.splitext(filebasename)[0])
     rt.save(outfilename)
     IJ.log("Result: %s" % outfilename)
 
-    maskfilename = os.path.join(dir, "mask_%s" % filebasename)
+    maskfilename = os.path.join(maskdir, "mask_%s" % filebasename)
     IJ.save(ImagePlus(filebasename, mask), maskfilename)
     IJ.log("Mask image: %s" % maskfilename)
     
