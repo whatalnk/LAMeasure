@@ -10,12 +10,20 @@ from ij import IJ, ImagePlus
 from ij.process import ImageProcessor, AutoThresholder
 from ij.plugin.filter import ThresholdToSelection
 from ij.plugin.filter import ParticleAnalyzer as PA
-from ij.measure import ResultsTable
+from ij.measure import ResultsTable, Calibration
 
 # PA args and options
 MINSIZE = 1000
 MAXSIZE = JFloat.POSITIVE_INFINITY
 options = PA.SHOW_NONE
+
+DistPixel = IJ.getNumber("Distance in pixel", 600)
+DistCm = IJ.getNumber("Distance in cm", 2.54)
+cal = Calibration()
+cal.setUnit("cm")
+cal.pixelWidth = DistCm / DistPixel
+cal.pixelHeight = DistCm / DistPixel
+ImagePlus().setGlobalCalibration(cal)
 
 dir = IJ.getDirectory("Path to directory")
 
