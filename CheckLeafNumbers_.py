@@ -2,17 +2,9 @@ from __future__ import with_statement
 
 import sys
 import os.path
-import fnmatch
-import datetime
 import codecs
 
-import java.lang.Float as JFloat
-
 from ij import IJ, ImagePlus
-from ij.process import ImageProcessor, AutoThresholder
-from ij.plugin.filter import ThresholdToSelection
-from ij.plugin.filter import ParticleAnalyzer as PA
-from ij.measure import ResultsTable, Calibration
 
 sys.path.append(IJ.getDirectory("plugins") + "/LAMeasure")
 
