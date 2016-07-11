@@ -3,6 +3,7 @@ from __future__ import with_statement
 import os.path
 import fnmatch
 import datetime
+import codecs
 
 import java.lang.Float as JFloat
 
@@ -37,6 +38,8 @@ for p in [maskdir, resdir]:
     if not os.path.exists(p):
         os.makedirs(p)
 
+leafnumbers = []
+
 for filename in filenames:
     ip = IJ.openImage(filename).getProcessor().convertToByteProcessor()
     IJ.log("Input file: %s" % filename)
@@ -48,7 +51,7 @@ for filename in filenames:
     mask = ip.getMask()
 
     rt = ResultsTable()
-
+    rt.showRowNumbers(False)
     pa = PA(options, PA.AREA + PA.PERIMETER + PA.CIRCULARITY, rt, MINSIZE, MAXSIZE) 
     pa.analyze(ImagePlus(), mask)
 
@@ -66,3 +69,7 @@ for filename in filenames:
     IJ.save(ImagePlus(filebasename, mask), maskfilename)
     IJ.log("Mask image: %s" % maskfilename)
     
+    leafnumbers.append((filebasename, nrow))
+
+with codecs.open(os.path.join(dir, "leafnumbers.csv"), "w", "utf-8") as f:
+    f.writelines(["%s, %d\n" % fn for fn in leafnumbers])
