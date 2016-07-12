@@ -9,33 +9,34 @@ import codecs
 import java.lang.Float as JFloat
 
 from ij import IJ, ImagePlus
-from ij.process import ImageProcessor, AutoThresholder
+from ij.process import ImageProcessor, AutoThresholder, ImageConverter
 from ij.plugin.filter import ThresholdToSelection
 from ij.plugin.filter import ParticleAnalyzer as PA
 from ij.measure import ResultsTable, Calibration
 
 from fiji.util.gui import GenericDialogPlus
+from fiji.threshold import Auto_Threshold
 
 class ScanedImage(object):
     def __init__(self, filename):
         self.filename = filename
 
     def measure(self):
-        ip = IJ.openImage(self.filename).getProcessor().convertToByteProcessor()
+        imp = IJ.openImage(self.filename)
         IJ.log("Input file: %s" % self.filename)
 
-        ip.setAutoThreshold("Minimum")
+        ImageConverter(imp).convertToGray8() 
+        hist = imp.getProcessor().getHistogram()
+        lowTH = Auto_Threshold.Minimum(hist)
 
-        roi = ThresholdToSelection().convert(ip)
-        ip.setRoi(roi)
-        mask = ip.getMask()
+        imp.getProcessor().threshold(lowTH)
 
         rt = ResultsTable()
         rt.showRowNumbers(False)
         pa = PA(options, PA.AREA + PA.PERIMETER + PA.CIRCULARITY, rt, MINSIZE, MAXSIZE) 
-        pa.analyze(ImagePlus(), mask)
+        pa.analyze(imp)
         self.result = self.rtToResult(rt)
-        self.mask = mask
+        self.mask = imp
 
     def rtToResult(self, rt):
         result = [] 
@@ -53,7 +54,7 @@ class ScanedImage(object):
     def saveMask(self):
         filebasename =  os.path.basename(self.filename)
         maskfilename = os.path.join(maskdir, "mask_%s" % filebasename)
-        IJ.save(ImagePlus(filebasename, self.mask), maskfilename)
+        IJ.save(self.mask, maskfilename)
         IJ.log("Mask image: %s\n" % maskfilename)
 
     def saveResult(self):
