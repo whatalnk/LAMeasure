@@ -7,6 +7,8 @@ import codecs
 
 import java.lang.Float as JFloat
 from org.apache.commons.math3.ml.clustering import KMeansPlusPlusClusterer, Clusterable
+from org.apache.commons.math3.ml.distance import EarthMoversDistance
+from org.apache.commons.math3.random import JDKRandomGenerator
 
 from ij import IJ, ImagePlus
 from ij.process import ImageProcessor, AutoThresholder
@@ -23,7 +25,7 @@ class PAResult(Clusterable):
         return "%s, %f, %f, %f, %f, %f, %f\n" % (self.filename, self.area, self.perim, self.circ, self.ar, self.round, self.solidity)
 
     def getPoint(self):
-        return [self.area]
+        return [self.area, self.solidity]
 
 def analyze(filename):
     ip = IJ.openImage(filename).getProcessor().convertToByteProcessor()
@@ -87,7 +89,7 @@ if __name__ == '__main__':
 
     for filename in filenames:
         filebasename, mask, paResults = analyze(filename)
-        clusterer = KMeansPlusPlusClusterer(CLUSTERSIZE)
+        clusterer = KMeansPlusPlusClusterer(CLUSTERSIZE, -1, EarthMoversDistance(), JDKRandomGenerator(), KMeansPlusPlusClusterer.EmptyClusterStrategy.ERROR)
         clusterResults = clusterer.cluster(paResults)
         cl1, cl2 = [clusterResults.get(i).getPoints() for i in range(CLUSTERSIZE)]
         sum1, sum2 = [sum([point.area for point in cl]) for cl in [cl1, cl2]]
