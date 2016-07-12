@@ -16,43 +16,70 @@ from ij.measure import ResultsTable, Calibration
 
 from fiji.util.gui import GenericDialogPlus
 
-class PAResult():
-    def __init__(self, filename, paResult):
-        self.filename = filename 
+class ScanedImage(object):
+    def __init__(self, filename):
+        self.filename = filename
+
+    def measure(self):
+        ip = IJ.openImage(self.filename).getProcessor().convertToByteProcessor()
+        IJ.log("Input file: %s" % self.filename)
+
+        ip.setAutoThreshold("Minimum")
+
+        roi = ThresholdToSelection().convert(ip)
+        ip.setRoi(roi)
+        mask = ip.getMask()
+
+        rt = ResultsTable()
+        rt.showRowNumbers(False)
+        pa = PA(options, PA.AREA + PA.PERIMETER + PA.CIRCULARITY, rt, MINSIZE, MAXSIZE) 
+        pa.analyze(ImagePlus(), mask)
+        self.result = self.rtToResult(rt)
+        self.mask = mask
+
+    def rtToResult(self, rt):
+        result = [] 
+        nrow = rt.size()
+        for i in range(nrow):
+            area = rt.getValue("Area", i)
+            perim = rt.getValue("Perim.", i)
+            circ = rt.getValue("Circ.", i)
+            ar = rt.getValue("AR", i)
+            round = rt.getValue("Round", i)
+            solidity = rt.getValue("Solidity", i)
+            result.append(PAResult((area, perim, circ, ar, round, solidity)))
+        return result
+
+    def saveMask(self):
+        filebasename =  os.path.basename(self.filename)
+        maskfilename = os.path.join(maskdir, "mask_%s" % filebasename)
+        IJ.save(ImagePlus(filebasename, self.mask), maskfilename)
+        IJ.log("Mask image: %s\n" % maskfilename)
+
+    def saveResult(self):
+        filebasename =  os.path.basename(self.filename)
+        resfilename = os.path.join(resdir, "res_%s.csv" % os.path.splitext(filebasename)[0])
+        with codecs.open(resfilename, "w", "utf-8") as f:
+            table = [",".join(header) + "\n"]
+            table += ["%s, %s\n" % (filebasename, row.asRow()) for row in self.result]
+            f.writelines(table)
+        IJ.log("Result: %s" % resfilename)
+
+class PAResult(object):
+    def __init__(self, paResult):
         self.area, self.perim, self.circ, self.ar, self.round, self.solidity = paResult
 
     def asRow(self):
-        return "%s, %f, %f, %f, %f, %f, %f\n" % (self.filename, self.area, self.perim, self.circ, self.ar, self.round, self.solidity)
+        return "%f, %f, %f, %f, %f, %f" % (self.area, self.perim, self.circ, self.ar, self.round, self.solidity)
 
-def analyze(filename):
-    ip = IJ.openImage(filename).getProcessor().convertToByteProcessor()
-    IJ.log("Input file: %s" % filename)
-
-    ip.setAutoThreshold("Minimum")
-
-    roi = ThresholdToSelection().convert(ip)
-    ip.setRoi(roi)
-    mask = ip.getMask()
-
-    rt = ResultsTable()
-    rt.showRowNumbers(False)
-    pa = PA(options, PA.AREA + PA.PERIMETER + PA.CIRCULARITY, rt, MINSIZE, MAXSIZE) 
-    pa.analyze(ImagePlus(), mask)
-
-    filebasename = os.path.basename(filename)
-
-    paResults = [] 
-    nrow = rt.size()
-    for i in range(nrow):
-        area = rt.getValue("Area", i)
-        perim = rt.getValue("Perim.", i)
-        circ = rt.getValue("Circ.", i)
-        ar = rt.getValue("AR", i)
-        round = rt.getValue("Round", i)
-        solidity = rt.getValue("Solidity", i)
-        paResults.append(PAResult(filebasename, [area, perim, circ, ar, round, solidity]))
-    return (filebasename, mask, paResults)
-
+class LeafNumbers(object):
+    def __init__(self):
+        self.leafnumbers = []
+    def add(self, filebasename, leafnumber):
+        self.leafnumbers.append((filebasename, leafnumber))
+    def save(self):
+        with codecs.open(os.path.join(dir, "leafnumbers.csv"), "w", "utf-8") as f:
+            f.writelines(["%s, %d\n" % fn for fn in self.leafnumbers])
 
 def getSettings():
     gd = GenericDialogPlus("Settings")
@@ -72,6 +99,13 @@ def getSettings():
 
     return (distPixel, distCm, minSize, imageDir)
 
+def setScale(distCm, distPixel):
+    cal = Calibration()
+    cal.setUnit("cm")
+    cal.pixelWidth = distCm / distPixel
+    cal.pixelHeight = distCm / distPixel
+    ImagePlus().setGlobalCalibration(cal)
+
 if __name__ == '__main__':
     # PA args and options
     distPixel, distCm, MINSIZE, dir = getSettings()
@@ -80,13 +114,7 @@ if __name__ == '__main__':
 
     header = ["Filename", "Area", "Perim.", "Circ", "AR", "Round", "Solidity"]
 
-    cal = Calibration()
-    cal.setUnit("cm")
-    cal.pixelWidth = distCm / distPixel
-    cal.pixelHeight = distCm / distPixel
-    ImagePlus().setGlobalCalibration(cal)
-
-    filenames = [os.path.join(dir, file) for file in os.listdir(dir) if fnmatch.fnmatch(file, '*.jpg')]
+    setScale(distCm, distPixel)
 
     maskdir = os.path.join(dir, "mask")
     resdir = os.path.join(dir, "res")
@@ -95,22 +123,16 @@ if __name__ == '__main__':
         if not os.path.exists(p):
             os.makedirs(p)
 
-    leafnumbers = []
+    filenames = [os.path.join(dir, file) for file in os.listdir(dir) if fnmatch.fnmatch(file, '*.jpg')]
 
+    leafnumbers = LeafNumbers()
+    
     for filename in filenames:
-        filebasename, mask, paResults = analyze(filename)
-        outfilename = os.path.join(resdir, "res_%s.csv" % os.path.splitext(filebasename)[0])
-        with codecs.open(outfilename, "w", "utf-8") as f:
-            table = [",".join(header) + "\n"]
-            table += [row.asRow() for row in paResults]
-            f.writelines(table)
-        IJ.log("Result: %s" % outfilename)
-
-        maskfilename = os.path.join(maskdir, "mask_%s" % filebasename)
-        IJ.save(ImagePlus(filebasename, mask), maskfilename)
-        IJ.log("Mask image: %s\n" % maskfilename)
-        
-        leafnumbers.append((filebasename, len(paResults)))
-
-    with codecs.open(os.path.join(dir, "leafnumbers.csv"), "w", "utf-8") as f:
-        f.writelines(["%s, %d\n" % fn for fn in leafnumbers])
+        filebasename = os.path.basename(filename)
+        scanedImage = ScanedImage(filename)
+        scanedImage.measure()
+        leafnumbers.add(filebasename, len(scanedImage.result))
+        scanedImage.saveMask()
+        scanedImage.saveResult()
+    
+    leafnumbers.save()
