@@ -1,5 +1,6 @@
 from __future__ import with_statement
 
+import sys
 import os.path
 import fnmatch
 import datetime
@@ -12,6 +13,8 @@ from ij.process import ImageProcessor, AutoThresholder
 from ij.plugin.filter import ThresholdToSelection
 from ij.plugin.filter import ParticleAnalyzer as PA
 from ij.measure import ResultsTable, Calibration
+
+from fiji.util.gui import GenericDialogPlus
 
 class PAResult():
     def __init__(self, filename, paResult):
@@ -51,23 +54,37 @@ def analyze(filename):
     return (filebasename, mask, paResults)
 
 
+def getSettings():
+    gd = GenericDialogPlus("Settings")
+    gd.addNumericField("Distance in pixel", 600, 0)
+    gd.addNumericField("Distance in cm", 2.54, 2)
+    gd.addNumericField("Min. size (cm^2)", 0.5, 2)    
+    gd.addDirectoryField("Directory", IJ.getDirectory("home"))
+    gd.showDialog()
+
+    if gd.wasCanceled():
+        sys.exit()
+    else:
+        distPixel = gd.getNextNumber()
+        distCm = gd.getNextNumber()
+        minSize = gd.getNextNumber() * (distPixel / distCm) ** 2
+        imageDir = gd.getNextString().decode("utf-8")
+
+    return (distPixel, distCm, minSize, imageDir)
+
 if __name__ == '__main__':
     # PA args and options
-    MINSIZE = 1000
+    distPixel, distCm, MINSIZE, dir = getSettings()
     MAXSIZE = JFloat.POSITIVE_INFINITY
     options = PA.SHOW_NONE
 
     header = ["Filename", "Area", "Perim.", "Circ", "AR", "Round", "Solidity"]
 
-    DistPixel = IJ.getNumber("Distance in pixel", 600)
-    DistCm = IJ.getNumber("Distance in cm", 2.54)
     cal = Calibration()
     cal.setUnit("cm")
-    cal.pixelWidth = DistCm / DistPixel
-    cal.pixelHeight = DistCm / DistPixel
+    cal.pixelWidth = distCm / distPixel
+    cal.pixelHeight = distCm / distPixel
     ImagePlus().setGlobalCalibration(cal)
-
-    dir = IJ.getDirectory("Path to directory")
 
     filenames = [os.path.join(dir, file) for file in os.listdir(dir) if fnmatch.fnmatch(file, '*.jpg')]
 
@@ -91,7 +108,7 @@ if __name__ == '__main__':
 
         maskfilename = os.path.join(maskdir, "mask_%s" % filebasename)
         IJ.save(ImagePlus(filebasename, mask), maskfilename)
-        IJ.log("Mask image: %s" % maskfilename)
+        IJ.log("Mask image: %s\n" % maskfilename)
         
         leafnumbers.append((filebasename, len(paResults)))
 
