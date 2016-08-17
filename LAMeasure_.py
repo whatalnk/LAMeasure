@@ -96,7 +96,7 @@ def getSettings():
         distPixel = gd.getNextNumber()
         distCm = gd.getNextNumber()
         minSize = gd.getNextNumber() * (distPixel / distCm) ** 2
-        imageDir = gd.getNextString().decode("utf-8")
+        imageDir = gd.getNextString()
 
     return (distPixel, distCm, minSize, imageDir)
 
