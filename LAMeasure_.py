@@ -8,7 +8,7 @@ import codecs
 
 import java.lang.Float as JFloat
 
-from ij import IJ, ImagePlus
+from ij import IJ, ImagePlus, Prefs
 from ij.process import ImageProcessor, AutoThresholder, ImageConverter
 from ij.plugin.filter import ThresholdToSelection
 from ij.plugin.filter import ParticleAnalyzer as PA
@@ -108,6 +108,10 @@ def setScale(distCm, distPixel):
     ImagePlus().setGlobalCalibration(cal)
 
 if __name__ == '__main__':
+    # Save current background value
+    bb = Prefs.blackBackground
+    Prefs.blackBackground = False
+
     # PA args and options
     distPixel, distCm, MINSIZE, dir = getSettings()
     MAXSIZE = JFloat.POSITIVE_INFINITY
@@ -137,3 +141,6 @@ if __name__ == '__main__':
         scanedImage.saveResult()
     
     leafnumbers.save()
+
+    # Reset background value
+    Prefs.blackBackground = bb
