@@ -25,11 +25,9 @@ class ScanedImage(object):
         imp = IJ.openImage(self.filename)
         IJ.log("Input file: %s" % self.filename)
 
-        ImageConverter(imp).convertToGray8() 
-        hist = imp.getProcessor().getHistogram()
-        lowTH = Auto_Threshold.Minimum(hist)
+        ImageConverter(imp).convertToGray8()
 
-        imp.getProcessor().threshold(lowTH)
+        res = Auto_Threshold().exec(imp, myMethod, noWhite, noBlack, doIwhite, doIset, doIlog, doIstackHistogram)
 
         rt = ResultsTable()
         rt.showRowNumbers(False)
@@ -52,9 +50,11 @@ class ScanedImage(object):
         return result
 
     def saveMask(self):
+        imp = self.mask
+        imp.getProcessor().invert()
         filebasename =  os.path.basename(self.filename)
         maskfilename = os.path.join(maskdir, "mask_%s" % filebasename)
-        IJ.save(self.mask, maskfilename)
+        IJ.save(imp, maskfilename)
         IJ.log("Mask image: %s\n" % maskfilename)
 
     def saveResult(self):
@@ -116,6 +116,15 @@ if __name__ == '__main__':
     distPixel, distCm, MINSIZE, dir = getSettings()
     MAXSIZE = JFloat.POSITIVE_INFINITY
     options = PA.SHOW_NONE
+    
+    # Auto_Threshold args
+    myMethod = "Minimum"
+    noWhite = False
+    noBlack = False
+    doIwhite = False
+    doIset = False
+    doIlog = True
+    doIstackHistogram = False
 
     header = ["Filename", "Area", "Perim.", "Circ", "AR", "Round", "Solidity"]
 
