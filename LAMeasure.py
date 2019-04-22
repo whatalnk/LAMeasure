@@ -22,17 +22,31 @@ class ScanedImage(object):
     def __init__(self, filename):
         self.filename = filename
 
+    def set_auto_threshold_options(self, myMethod, noWhite, noBlack, doIwhite, doIset, doIlog, doIstackHistogram):
+        self.myMethod = myMethod
+        self.noWhite = noWhite
+        self.noBlack = noBlack
+        self.doIwhite = doIwhite
+        self.doIset = doIset
+        self.doIlog = doIlog
+        self.doIstackHistogram = doIstackHistogram
+
+    def set_pa_options(self, options, MINSIZE, MAXSIZE):
+        self.options = options
+        self.MINSIZE = MINSIZE
+        self.MAXSIZE = MAXSIZE
+
     def measure(self):
         imp = IJ.openImage(self.filename)
         IJ.log("Input file: %s" % self.filename)
 
         ImageConverter(imp).convertToGray8()
 
-        res = Auto_Threshold().exec(imp, myMethod, noWhite, noBlack, doIwhite, doIset, doIlog, doIstackHistogram)
+        res = Auto_Threshold().exec(imp, self.myMethod, self.noWhite, self.noBlack, self.doIwhite, self.doIset, self.doIlog, self.doIstackHistogram)
 
         rt = ResultsTable()
         rt.showRowNumbers(False)
-        pa = PA(options, PA.AREA + PA.PERIMETER + PA.CIRCULARITY, rt, MINSIZE, MAXSIZE)
+        pa = PA(self.options, PA.AREA + PA.PERIMETER + PA.CIRCULARITY, rt, self.MINSIZE, self.MAXSIZE)
         pa.analyze(imp)
         self.result = self.rtToResult(rt)
         self.mask = imp
@@ -50,7 +64,7 @@ class ScanedImage(object):
             result.append(PAResult((area, perim, circ, ar, round, solidity)))
         return result
 
-    def saveMask(self):
+    def saveMask(self, maskdir):
         imp = self.mask
         imp.getProcessor().invert()
         filebasename = os.path.basename(self.filename)
@@ -58,7 +72,7 @@ class ScanedImage(object):
         IJ.save(imp, maskfilename)
         IJ.log("Mask image: %s\n" % maskfilename)
 
-    def saveResult(self):
+    def saveResult(self, resdir, header):
         filebasename = os.path.basename(self.filename)
         resfilename = os.path.join(resdir, "res_%s.csv" % os.path.splitext(filebasename)[0])
         with codecs.open(resfilename, "w", "utf-8") as f:
@@ -83,7 +97,7 @@ class LeafNumbers(object):
     def add(self, filebasename, leafnumber):
         self.leafnumbers.append((filebasename, leafnumber))
 
-    def save(self):
+    def save(self, dir):
         with codecs.open(os.path.join(dir, "leafnumbers.csv"), "w", "utf-8") as f:
             f.writelines(["%s, %d\n" % fn for fn in self.leafnumbers])
 
@@ -126,12 +140,14 @@ class LAMeasure(object):
         for filename in filenames:
             filebasename = os.path.basename(filename)
             scanedImage = ScanedImage(filename)
+            scanedImage.set_auto_threshold_options(myMethod, noWhite, noBlack, doIwhite, doIset, doIlog, doIstackHistogram)
+            scanedImage.set_pa_options(options, MINSIZE, MAXSIZE)
             scanedImage.measure()
             leafnumbers.add(filebasename, len(scanedImage.result))
-            scanedImage.saveMask()
-            scanedImage.saveResult()
+            scanedImage.saveMask(maskdir)
+            scanedImage.saveResult(resdir, header)
 
-        leafnumbers.save()
+        leafnumbers.save(dir)
 
         # Reset background value
         Prefs.blackBackground = bb
