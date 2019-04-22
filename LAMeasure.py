@@ -95,7 +95,7 @@ class LAMeasure(object):
         Prefs.blackBackground = False
 
         # PA args and options
-        distPixel, distCm, MINSIZE, dir = self.getSettings()
+        distPixel, distCm, MINSIZE, dir, ext = self.getSettings()
         MAXSIZE = JFloat.POSITIVE_INFINITY
         options = PA.SHOW_NONE
 
@@ -119,7 +119,7 @@ class LAMeasure(object):
             if not os.path.exists(p):
                 os.makedirs(p)
 
-        filenames = [os.path.join(dir, file) for file in os.listdir(dir) if fnmatch.fnmatch(file, '*.jpg')]
+        filenames = [os.path.join(dir, file) for file in os.listdir(dir) if fnmatch.fnmatch(file, ext)]
 
         leafnumbers = LeafNumbers()
 
@@ -142,6 +142,7 @@ class LAMeasure(object):
         gd.addNumericField("Distance in cm", 2.54, 2)
         gd.addNumericField("Min. size (cm^2)", 0.5, 2)
         gd.addDirectoryField("Directory", IJ.getDirectory("home"))
+        gd.addStringField("File extension", "*.jpg", 8)
         gd.showDialog()
 
         if gd.wasCanceled():
@@ -151,8 +152,9 @@ class LAMeasure(object):
             distCm = gd.getNextNumber()
             minSize = gd.getNextNumber() * (distPixel / distCm) ** 2
             imageDir = gd.getNextString()
+            ext = gd.getNextString()
 
-        return (distPixel, distCm, minSize, imageDir)
+        return (distPixel, distCm, minSize, imageDir, ext)
 
     def setScale(self, distCm, distPixel):
         cal = Calibration()
