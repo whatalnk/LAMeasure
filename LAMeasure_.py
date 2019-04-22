@@ -17,6 +17,7 @@ from ij.measure import ResultsTable, Calibration
 from fiji.util.gui import GenericDialogPlus
 from fiji.threshold import Auto_Threshold
 
+
 class ScanedImage(object):
     def __init__(self, filename):
         self.filename = filename
@@ -52,19 +53,20 @@ class ScanedImage(object):
     def saveMask(self):
         imp = self.mask
         imp.getProcessor().invert()
-        filebasename =  os.path.basename(self.filename)
+        filebasename = os.path.basename(self.filename)
         maskfilename = os.path.join(maskdir, "mask_%s" % filebasename)
         IJ.save(imp, maskfilename)
         IJ.log("Mask image: %s\n" % maskfilename)
 
     def saveResult(self):
-        filebasename =  os.path.basename(self.filename)
+        filebasename = os.path.basename(self.filename)
         resfilename = os.path.join(resdir, "res_%s.csv" % os.path.splitext(filebasename)[0])
         with codecs.open(resfilename, "w", "utf-8") as f:
             table = [",".join(header) + "\n"]
             table += ["%s, %s\n" % (filebasename, row.asRow()) for row in self.result]
             f.writelines(table)
         IJ.log("Result: %s" % resfilename)
+
 
 class PAResult(object):
     def __init__(self, paResult):
@@ -73,14 +75,18 @@ class PAResult(object):
     def asRow(self):
         return "%f, %f, %f, %f, %f, %f" % (self.area, self.perim, self.circ, self.ar, self.round, self.solidity)
 
+
 class LeafNumbers(object):
     def __init__(self):
         self.leafnumbers = []
+
     def add(self, filebasename, leafnumber):
         self.leafnumbers.append((filebasename, leafnumber))
+
     def save(self):
         with codecs.open(os.path.join(dir, "leafnumbers.csv"), "w", "utf-8") as f:
             f.writelines(["%s, %d\n" % fn for fn in self.leafnumbers])
+
 
 def getSettings():
     gd = GenericDialogPlus("Settings")
@@ -100,12 +106,14 @@ def getSettings():
 
     return (distPixel, distCm, minSize, imageDir)
 
+
 def setScale(distCm, distPixel):
     cal = Calibration()
     cal.setUnit("cm")
     cal.pixelWidth = distCm / distPixel
     cal.pixelHeight = distCm / distPixel
     ImagePlus().setGlobalCalibration(cal)
+
 
 if __name__ == '__main__':
     # Save current background value
