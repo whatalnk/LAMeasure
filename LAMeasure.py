@@ -32,13 +32,13 @@ class ScanedImage(object):
 
         rt = ResultsTable()
         rt.showRowNumbers(False)
-        pa = PA(options, PA.AREA + PA.PERIMETER + PA.CIRCULARITY, rt, MINSIZE, MAXSIZE) 
+        pa = PA(options, PA.AREA + PA.PERIMETER + PA.CIRCULARITY, rt, MINSIZE, MAXSIZE)
         pa.analyze(imp)
         self.result = self.rtToResult(rt)
         self.mask = imp
 
     def rtToResult(self, rt):
-        result = [] 
+        result = []
         nrow = rt.size()
         for i in range(nrow):
             area = rt.getValue("Area", i)
@@ -88,76 +88,79 @@ class LeafNumbers(object):
             f.writelines(["%s, %d\n" % fn for fn in self.leafnumbers])
 
 
-def getSettings():
-    gd = GenericDialogPlus("Settings")
-    gd.addNumericField("Distance in pixel", 600, 0)
-    gd.addNumericField("Distance in cm", 2.54, 2)
-    gd.addNumericField("Min. size (cm^2)", 0.5, 2)    
-    gd.addDirectoryField("Directory", IJ.getDirectory("home"))
-    gd.showDialog()
+class LAMeasure(object):
+    def __init__(self):
+        # Save current background value
+        bb = Prefs.blackBackground
+        Prefs.blackBackground = False
 
-    if gd.wasCanceled():
-        sys.exit()
-    else:
-        distPixel = gd.getNextNumber()
-        distCm = gd.getNextNumber()
-        minSize = gd.getNextNumber() * (distPixel / distCm) ** 2
-        imageDir = gd.getNextString()
+        # PA args and options
+        distPixel, distCm, MINSIZE, dir = self.getSettings()
+        MAXSIZE = JFloat.POSITIVE_INFINITY
+        options = PA.SHOW_NONE
 
-    return (distPixel, distCm, minSize, imageDir)
+        # Auto_Threshold args
+        myMethod = "Minimum"
+        noWhite = False
+        noBlack = False
+        doIwhite = False
+        doIset = False
+        doIlog = True
+        doIstackHistogram = False
 
+        header = ["Filename", "Area", "Perim.", "Circ", "AR", "Round", "Solidity"]
 
-def setScale(distCm, distPixel):
-    cal = Calibration()
-    cal.setUnit("cm")
-    cal.pixelWidth = distCm / distPixel
-    cal.pixelHeight = distCm / distPixel
-    ImagePlus().setGlobalCalibration(cal)
+        self.setScale(distCm, distPixel)
+
+        maskdir = os.path.join(dir, "mask")
+        resdir = os.path.join(dir, "res")
+
+        for p in [maskdir, resdir]:
+            if not os.path.exists(p):
+                os.makedirs(p)
+
+        filenames = [os.path.join(dir, file) for file in os.listdir(dir) if fnmatch.fnmatch(file, '*.jpg')]
+
+        leafnumbers = LeafNumbers()
+
+        for filename in filenames:
+            filebasename = os.path.basename(filename)
+            scanedImage = ScanedImage(filename)
+            scanedImage.measure()
+            leafnumbers.add(filebasename, len(scanedImage.result))
+            scanedImage.saveMask()
+            scanedImage.saveResult()
+
+        leafnumbers.save()
+
+        # Reset background value
+        Prefs.blackBackground = bb
+
+    def getSettings(self):
+        gd = GenericDialogPlus("Settings")
+        gd.addNumericField("Distance in pixel", 600, 0)
+        gd.addNumericField("Distance in cm", 2.54, 2)
+        gd.addNumericField("Min. size (cm^2)", 0.5, 2)
+        gd.addDirectoryField("Directory", IJ.getDirectory("home"))
+        gd.showDialog()
+
+        if gd.wasCanceled():
+            sys.exit()
+        else:
+            distPixel = gd.getNextNumber()
+            distCm = gd.getNextNumber()
+            minSize = gd.getNextNumber() * (distPixel / distCm) ** 2
+            imageDir = gd.getNextString()
+
+        return (distPixel, distCm, minSize, imageDir)
+
+    def setScale(self, distCm, distPixel):
+        cal = Calibration()
+        cal.setUnit("cm")
+        cal.pixelWidth = distCm / distPixel
+        cal.pixelHeight = distCm / distPixel
+        ImagePlus().setGlobalCalibration(cal)
 
 
 if __name__ == '__main__':
-    # Save current background value
-    bb = Prefs.blackBackground
-    Prefs.blackBackground = False
-
-    # PA args and options
-    distPixel, distCm, MINSIZE, dir = getSettings()
-    MAXSIZE = JFloat.POSITIVE_INFINITY
-    options = PA.SHOW_NONE
-    
-    # Auto_Threshold args
-    myMethod = "Minimum"
-    noWhite = False
-    noBlack = False
-    doIwhite = False
-    doIset = False
-    doIlog = True
-    doIstackHistogram = False
-
-    header = ["Filename", "Area", "Perim.", "Circ", "AR", "Round", "Solidity"]
-
-    setScale(distCm, distPixel)
-
-    maskdir = os.path.join(dir, "mask")
-    resdir = os.path.join(dir, "res")
-
-    for p in [maskdir, resdir]:
-        if not os.path.exists(p):
-            os.makedirs(p)
-
-    filenames = [os.path.join(dir, file) for file in os.listdir(dir) if fnmatch.fnmatch(file, '*.jpg')]
-
-    leafnumbers = LeafNumbers()
-    
-    for filename in filenames:
-        filebasename = os.path.basename(filename)
-        scanedImage = ScanedImage(filename)
-        scanedImage.measure()
-        leafnumbers.add(filebasename, len(scanedImage.result))
-        scanedImage.saveMask()
-        scanedImage.saveResult()
-    
-    leafnumbers.save()
-
-    # Reset background value
-    Prefs.blackBackground = bb
+    LAMeasure()
