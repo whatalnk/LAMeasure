@@ -6,6 +6,8 @@ import codecs
 
 from ij import IJ, ImagePlus
 
+from fiji.util.gui import GenericDialogPlus
+
 from LAMeasure import PAResult
 
 
@@ -36,7 +38,17 @@ class CheckLeafNumbers(object):
             n = int(n)
             ip = IJ.openImage(os.path.join(maskdir, "mask_%s" % filename.decode('utf-8')))
             ip.show()
-            ans = int(IJ.getNumber("Number of Leaf", n))
+            gd = GenericDialogPlus("Check number of leaves")
+            gd.addNumericField("Number of Leaf", n, 0)
+            gd.addCheckbox("Remeasure ?", False)
+            gd.showDialog()
+            if gd.wasCanceled():
+                sys.exit(0)
+            ans = int(gd.getNextNumber())
+            remeasure = gd.getNextBoolean()
+            if remeasure:
+                IJ.log("Remeasure: %s" % filename)
+            self.leafnumbers_.append([filename, str(n), str(ans), str(remeasure)])
             if ans < n:
                 with open(os.path.join(resdir, "res_%s.csv" % os.path.splitext(filename)[0].decode("utf-8")), "r") as f:
                     header, paResults = self.readPAResults(f)
